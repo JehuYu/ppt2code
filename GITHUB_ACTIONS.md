@@ -2,6 +2,13 @@
 
 本项目配置了完整的 CI/CD 流水线，支持自动构建、测试和发布 Docker 镜像。
 
+## 🔧 最新更新
+
+- ✅ 修复了 `actions/upload-artifact@v3` 的弃用警告，升级到 v4
+- ✅ 修复了 `actions/upload-release-asset@v1` 的弃用问题，改用 `softprops/action-gh-release@v1`
+- ✅ 更新了 `github/codeql-action/upload-sarif` 到 v3
+- ✅ 优化了多架构构建配置
+
 ## 🔄 工作流概览
 
 ### 1. CI 工作流 (`.github/workflows/ci.yml`)
