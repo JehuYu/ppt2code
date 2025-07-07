@@ -29,9 +29,32 @@
 - **前端**: 原生HTML/CSS/JavaScript
 - **部署**: Ubuntu 24 + Docker + Nginx
 
-## 🚀 快速部署 (Ubuntu 24)
+## 🚀 快速部署
 
-### 方法一：一键自动部署 (推荐)
+### 方法一：使用预构建镜像 (推荐)
+
+```bash
+# 下载部署包
+wget https://github.com/your-username/ppt2code/releases/latest/download/ppt2code-deployment.tar.gz
+
+# 解压并部署
+tar -xzf ppt2code-deployment.tar.gz
+cd deployment
+./deploy.sh
+```
+
+### 方法二：Docker Hub 镜像
+
+```bash
+# 直接运行预构建镜像
+docker run -d \
+  --name ppt2code \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  ghcr.io/your-username/ppt2code:latest
+```
+
+### 方法三：一键自动部署 (Ubuntu 24)
 
 ```bash
 # 克隆项目
@@ -41,12 +64,9 @@ cd ppt2code
 # 运行自动部署脚本
 chmod +x deploy-ubuntu.sh
 ./deploy-ubuntu.sh
-
-# 启动服务
-sudo systemctl start ppt2code
 ```
 
-### 方法二：Docker部署
+### 方法四：Docker Compose
 
 ```bash
 # 使用Docker Compose
@@ -56,7 +76,7 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### 方法三：手动安装
+### 方法五：手动安装
 
 ```bash
 # 安装依赖
@@ -199,10 +219,30 @@ sudo journalctl -u ppt2code -f
 - 文件权限问题
 - 内存不足问题
 
-## 📞 技术支持
+## � CI/CD 流水线
+
+本项目配置了完整的 GitHub Actions 工作流：
+
+- **🧪 持续集成**: 自动测试、代码质量检查
+- **🐳 Docker 构建**: 多架构镜像自动构建和发布
+- **📦 自动发布**: 创建 Release 时自动生成部署包
+- **🔒 安全扫描**: 自动漏洞扫描和安全检查
+
+详细配置请查看 [GitHub Actions 指南](./GITHUB_ACTIONS.md)
+
+### 镜像地址
+
+```bash
+# GitHub Container Registry
+ghcr.io/your-username/ppt2code:latest
+ghcr.io/your-username/ppt2code:v1.0.0
+```
+
+## �📞 技术支持
 
 - 📖 查看 [安装指南](./INSTALL.md)
 - 🐧 查看 [Ubuntu部署指南](./UBUNTU_DEPLOY.md)
+- 🔄 查看 [GitHub Actions指南](./GITHUB_ACTIONS.md)
 - 🧪 运行系统测试: `npm test`
 - 📋 查看日志文件排查问题
 

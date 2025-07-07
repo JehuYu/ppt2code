@@ -1,0 +1,281 @@
+name: Release and Deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+
+  create-deployment-package:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Create deployment package
+      run: |
+        mkdir -p deployment
+        
+        # 创建生产环境docker-compose文件
+        cat > deployment/docker-compose.prod.yml << EOF
+        version: '3.8'
+        
+        services:
+          ppt2code:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            container_name: ppt2code-app
+            restart: unless-stopped
+            ports:
+              - "3000:3000"
+            environment:
+              - NODE_ENV=production
+              - PORT=3000
+              - TZ=Asia/Shanghai
+            volumes:
+              - ./data/uploads:/app/uploads
+              - ./data/converted:/app/converted
+              - ./data/qrcodes:/app/qrcodes
+              - ./data/logs:/app/logs
+            networks:
+              - ppt2code-network
+            healthcheck:
+              test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+              start_period: 40s
+        
+          nginx:
+            image: nginx:alpine
+            container_name: ppt2code-nginx
+            restart: unless-stopped
+            ports:
+              - "80:80"
+              - "443:443"
+            volumes:
+              - ./nginx.conf:/etc/nginx/nginx.conf:ro
+              - ./ssl:/etc/nginx/ssl:ro
+            depends_on:
+              - ppt2code
+            networks:
+              - ppt2code-network
+        
+        networks:
+          ppt2code-network:
+            driver: bridge
+        
+        volumes:
+          uploads:
+          converted:
+          qrcodes:
+          logs:
+        EOF
+        
+        # 创建部署脚本
+        cat > deployment/deploy.sh << 'EOF'
+        #!/bin/bash
+        
+        # PPT2Code 生产环境部署脚本
+        
+        set -e
+        
+        echo "🚀 开始部署 PPT2Code..."
+        
+        # 创建数据目录
+        mkdir -p data/{uploads,converted,qrcodes,logs}
+        
+        # 停止旧容器
+        docker-compose -f docker-compose.prod.yml down || true
+        
+        # 拉取最新镜像
+        docker-compose -f docker-compose.prod.yml pull
+        
+        # 启动服务
+        docker-compose -f docker-compose.prod.yml up -d
+        
+        # 等待服务启动
+        echo "⏳ 等待服务启动..."
+        sleep 30
+        
+        # 检查服务状态
+        if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+            echo "✅ 部署成功！"
+            echo "🌐 访问地址: http://localhost"
+            docker-compose -f docker-compose.prod.yml ps
+        else
+            echo "❌ 部署失败！"
+            docker-compose -f docker-compose.prod.yml logs
+            exit 1
+        fi
+        EOF
+        
+        chmod +x deployment/deploy.sh
+        
+        # 复制配置文件
+        cp nginx.conf deployment/
+        cp docker-compose.yml deployment/docker-compose.example.yml
+        
+        # 创建README
+        cat > deployment/README.md << 'EOF'
+        # PPT2Code 部署包
+        
+        ## 快速部署
+        
+        ```bash
+        # 1. 解压部署包
+        tar -xzf ppt2code-deployment.tar.gz
+        cd deployment
+        
+        # 2. 运行部署脚本
+        ./deploy.sh
+        ```
+        
+        ## 手动部署
+        
+        ```bash
+        # 启动服务
+        docker-compose -f docker-compose.prod.yml up -d
+        
+        # 查看状态
+        docker-compose -f docker-compose.prod.yml ps
+        
+        # 查看日志
+        docker-compose -f docker-compose.prod.yml logs -f
+        ```
+        
+        ## 配置说明
+        
+        - `docker-compose.prod.yml`: 生产环境配置
+        - `nginx.conf`: Nginx配置文件
+        - `deploy.sh`: 自动部署脚本
+        
+        ## 数据目录
+        
+        - `data/uploads/`: 上传的PPT文件
+        - `data/converted/`: 转换后的文件
+        - `data/qrcodes/`: 生成的二维码
+        - `data/logs/`: 应用日志
+        EOF
+
+    - name: Create deployment archive
+      run: |
+        cd deployment
+        tar -czf ../ppt2code-deployment.tar.gz .
+        cd ..
+
+    - name: Upload deployment package
+      uses: actions/upload-artifact@v3
+      with:
+        name: ppt2code-deployment
+        path: ppt2code-deployment.tar.gz
+
+    - name: Upload to release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./ppt2code-deployment.tar.gz
+        asset_name: ppt2code-deployment.tar.gz
+        asset_content_type: application/gzip
+
+  security-scan:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

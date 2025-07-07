@@ -1,69 +1,83 @@
 # PPT2Code Docker配置文件
-# 基于Ubuntu 24.04构建
+# 多阶段构建优化版本
 
-FROM ubuntu:24.04
+# 构建阶段
+FROM ubuntu:24.04 AS builder
+
+# 设置环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NODE_VERSION=18
+
+# 安装构建依赖
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制package文件
+COPY package*.json ./
+
+# 安装依赖（包括开发依赖用于构建）
+RUN npm ci && npm cache clean --force
+
+# 运行阶段
+FROM ubuntu:24.04 AS runtime
 
 # 设置环境变量
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_VERSION=18
 ENV TZ=Asia/Shanghai
-
-# 设置工作目录
-WORKDIR /app
-
-# 更新系统并安装基础依赖
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    gnupg \
-    software-properties-common \
-    ca-certificates \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
 
 # 设置时区
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 安装Node.js
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
-    && apt-get install -y nodejs
-
-# 安装LibreOffice
+# 安装运行时依赖
 RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
     libreoffice \
     libreoffice-java-common \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装ImageMagick
-RUN apt-get update && apt-get install -y \
     imagemagick \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装中文字体支持
-RUN apt-get update && apt-get install -y \
     fonts-wqy-microhei \
     fonts-wqy-zenhei \
     fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 安装Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建应用用户
 RUN useradd -m -s /bin/bash ppt2code
 
-# 复制package文件
-COPY package*.json ./
+# 设置工作目录
+WORKDIR /app
 
-# 安装Node.js依赖
-RUN npm ci --only=production && npm cache clean --force
+# 从构建阶段复制node_modules
+COPY --from=builder /app/node_modules ./node_modules
 
 # 复制应用代码
-COPY . .
+COPY --chown=ppt2code:ppt2code . .
 
-# 创建必要的目录
+# 只安装生产依赖
+RUN npm ci --only=production && npm cache clean --force
+
+# 创建必要的目录并设置权限
 RUN mkdir -p uploads converted qrcodes logs \
-    && chown -R ppt2code:ppt2code /app
-
-# 设置权限
-RUN chmod +x deploy-ubuntu.sh batch-process.js
+    && chown -R ppt2code:ppt2code /app \
+    && chmod +x deploy-ubuntu.sh batch-process.js test-system.js
 
 # 切换到应用用户
 USER ppt2code
@@ -72,7 +86,7 @@ USER ppt2code
 EXPOSE 3000
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/ || exit 1
 
 # 启动命令
