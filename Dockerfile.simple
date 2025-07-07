@@ -1,0 +1,47 @@
+# PPT2Code 简化版 Dockerfile
+# 专注于快速构建成功
+
+FROM node:18-alpine
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV TZ=Asia/Shanghai
+
+# 安装系统依赖
+RUN apk add --no-cache \
+    curl \
+    libreoffice \
+    imagemagick \
+    fontconfig \
+    ttf-dejavu
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制应用代码
+COPY . .
+
+# 安装Node.js依赖
+RUN npm install --production --no-audit --no-fund && \
+    npm cache clean --force
+
+# 创建必要的目录
+RUN mkdir -p uploads converted qrcodes logs
+
+# 创建非root用户
+RUN addgroup -g 1001 -S ppt2code && \
+    adduser -S ppt2code -u 1001 -G ppt2code && \
+    chown -R ppt2code:ppt2code /app
+
+# 切换到非root用户
+USER ppt2code
+
+# 暴露端口
+EXPOSE 3000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+# 启动命令
+CMD ["node", "server.js"]

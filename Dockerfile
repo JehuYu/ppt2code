@@ -23,11 +23,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# 复制package文件
-COPY package*.json ./
+# 复制package文件和npm配置
+COPY package*.json .npmrc ./
 
 # 安装Node.js依赖
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production --no-audit --no-fund && npm cache clean --force
 
 # 复制应用代码
 COPY . .

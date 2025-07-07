@@ -18,6 +18,7 @@ NC='\033[0m'
 IMAGE_NAME="ppt2code"
 TAG=${1:-latest}
 REGISTRY=${REGISTRY:-"ghcr.io/your-username"}
+DOCKERFILE=${DOCKERFILE:-"Dockerfile"}
 
 # 显示帮助
 show_help() {
@@ -33,10 +34,15 @@ show_help() {
     echo "  clean    - 清理镜像"
     echo "  help     - 显示帮助"
     echo ""
+    echo "环境变量:"
+    echo "  DOCKERFILE - 指定Dockerfile (默认: Dockerfile)"
+    echo "  REGISTRY   - 指定镜像仓库 (默认: ghcr.io/your-username)"
+    echo ""
     echo "示例:"
     echo "  $0 v1.0.0 build"
     echo "  $0 latest test"
-    echo "  $0 latest push"
+    echo "  DOCKERFILE=Dockerfile.simple $0 latest build"
+    echo "  REGISTRY=your-registry.com $0 latest push"
 }
 
 # 检查Docker
@@ -59,6 +65,7 @@ build_image() {
     echo -e "${BLUE}📦 构建镜像: ${full_name}${NC}"
     
     docker build \
+        --file "${DOCKERFILE}" \
         --tag "${full_name}" \
         --build-arg BUILDTIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
         --build-arg VERSION="${TAG}" \
