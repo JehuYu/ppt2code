@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT预览 - PPT2Code</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .preview-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .slide-navigation {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slide-counter {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #5a6fd8;
+        }
+
+        .nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .slide-display {
+            padding: 20px;
+            text-align: center;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide-image {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .slide-thumbnails {
+            background: #f8f9fa;
+            padding: 15px;
+            border-top: 1px solid #e9ecef;
+            overflow-x: auto;
+        }
+
+        .thumbnails-container {
+            display: flex;
+            gap: 10px;
+            min-width: max-content;
+        }
+
+        .thumbnail {
+            width: 120px;
+            height: 80px;
+            border: 2px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            object-fit: cover;
+        }
+
+        .thumbnail.active {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .thumbnail:hover {
+            border-color: #5a6fd8;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 50px;
+            color: #dc3545;
+        }
+
+        .error-message h2 {
+            margin-bottom: 15px;
+        }
+
+        .back-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-button:hover {
+            background: #5a6268;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .slide-navigation {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .slide-display {
+                padding: 10px;
+                min-height: 300px;
+            }
+
+            .thumbnail {
+                width: 80px;
+                height: 60px;
+            }
+        }
+
+        /* 全屏模式 */
+        .fullscreen-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .fullscreen-btn:hover {
+            background: #218838;
+        }
+
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-content {
+            max-width: 95%;
+            max-height: 95%;
+            position: relative;
+        }
+
+        .fullscreen-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📄 PPT预览</h1>
+        <p id="pptTitle">加载中...</p>
+    </div>
+
+    <div class="container">
+        <!-- 加载状态 -->
+        <div id="loadingState" class="loading">
+            <div class="loading-spinner"></div>
+            <p>正在加载PPT预览...</p>
+        </div>
+
+        <!-- 错误状态 -->
+        <div id="errorState" class="error-message" style="display: none;">
+            <h2>❌ 加载失败</h2>
+            <p id="errorMessage">无法加载PPT预览</p>
+            <a href="/" class="back-button">返回首页</a>
+        </div>
+
+        <!-- 预览内容 -->
+        <div id="previewContent" class="preview-container" style="display: none;">
+            <!-- 导航栏 -->
+            <div class="slide-navigation">
+                <div class="slide-counter">
+                    <span id="currentSlide">1</span> / <span id="totalSlides">1</span>
+                </div>
+                <div class="nav-buttons">
+                    <button id="prevBtn" class="nav-btn" onclick="previousSlide()">上一页</button>
+                    <button id="nextBtn" class="nav-btn" onclick="nextSlide()">下一页</button>
+                    <button class="fullscreen-btn" onclick="toggleFullscreen()">全屏</button>
+                </div>
+            </div>
+
+            <!-- 幻灯片显示区域 -->
+            <div class="slide-display">
+                <img id="currentSlideImage" class="slide-image" alt="PPT幻灯片">
+            </div>
+
+            <!-- 缩略图导航 -->
+            <div id="thumbnailsSection" class="slide-thumbnails" style="display: none;">
+                <div class="thumbnails-container" id="thumbnailsContainer">
+                    <!-- 缩略图将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全屏覆盖层 -->
+    <div id="fullscreenOverlay" class="fullscreen-overlay">
+        <div class="fullscreen-content">
+            <button class="fullscreen-close" onclick="exitFullscreen()">&times;</button>
+            <img id="fullscreenImage" style="max-width: 100%; max-height: 100%;" alt="全屏幻灯片">
+        </div>
+    </div>
+
+    <script>
+        class PPTPreview {
+            constructor() {
+                this.currentSlideIndex = 0;
+                this.slides = [];
+                this.fileId = this.getFileIdFromUrl();
+                this.init();
+            }
+
+            getFileIdFromUrl() {
+                const path = window.location.pathname;
+                return path.split('/').pop();
+            }
+
+            async init() {
+                try {
+                    await this.loadPreviewData();
+                    this.setupKeyboardNavigation();
+                } catch (error) {
+                    this.showError('加载PPT预览失败: ' + error.message);
+                }
+            }
+
+            async loadPreviewData() {
+                const response = await fetch(`/api/preview/${this.fileId}`);
+                
+                if (!response.ok) {
+                    throw new Error('预览数据加载失败');
+                }
+
+                const data = await response.json();
+                
+                if (data.slides && data.slides.length > 0) {
+                    this.slides = data.slides;
+                    this.setupSlideView();
+                } else if (data.hasHtmlPreview) {
+                    // 如果有HTML预览，重定向到HTML页面
+                    window.location.href = data.htmlPreviewUrl;
+                } else {
+                    throw new Error('没有可用的预览内容');
+                }
+            }
+
+            setupSlideView() {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('previewContent').style.display = 'block';
+                
+                // 设置标题
+                document.getElementById('pptTitle').textContent = `PPT预览 (${this.slides.length} 页)`;
+                
+                // 设置总页数
+                document.getElementById('totalSlides').textContent = this.slides.length;
+                
+                // 显示第一张幻灯片
+                this.showSlide(0);
+                
+                // 如果有多张幻灯片，显示缩略图
+                if (this.slides.length > 1) {
+                    this.setupThumbnails();
+                }
+                
+                this.updateNavigation();
+            }
+
+            setupThumbnails() {
+                const thumbnailsSection = document.getElementById('thumbnailsSection');
+                const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+                
+                thumbnailsSection.style.display = 'block';
+                
+                this.slides.forEach((slide, index) => {
+                    const thumbnail = document.createElement('img');
+                    thumbnail.src = slide.url;
+                    thumbnail.className = 'thumbnail';
+                    thumbnail.alt = `幻灯片 ${index + 1}`;
+                    thumbnail.onclick = () => this.showSlide(index);
+                    
+                    if (index === 0) {
+                        thumbnail.classList.add('active');
+                    }
+                    
+                    thumbnailsContainer.appendChild(thumbnail);
+                });
+            }
+
+            showSlide(index) {
+                if (index < 0 || index >= this.slides.length) return;
+                
+                this.currentSlideIndex = index;
+                
+                // 更新主图片
+                const currentSlideImage = document.getElementById('currentSlideImage');
+                currentSlideImage.src = this.slides[index].url;
+                
+                // 更新页码
+                document.getElementById('currentSlide').textContent = index + 1;
+                
+                // 更新缩略图激活状态
+                const thumbnails = document.querySelectorAll('.thumbnail');
+                thumbnails.forEach((thumb, i) => {
+                    thumb.classList.toggle('active', i === index);
+                });
+                
+                this.updateNavigation();
+            }
+
+            updateNavigation() {
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                
+                prevBtn.disabled = this.currentSlideIndex === 0;
+                nextBtn.disabled = this.currentSlideIndex === this.slides.length - 1;
+            }
+
+            setupKeyboardNavigation() {
+                document.addEventListener('keydown', (e) => {
+                    switch(e.key) {
+                        case 'ArrowLeft':
+                        case 'ArrowUp':
+                            this.previousSlide();
+                            break;
+                        case 'ArrowRight':
+                        case 'ArrowDown':
+                        case ' ':
+                            this.nextSlide();
+                            break;
+                        case 'Escape':
+                            this.exitFullscreen();
+                            break;
+                        case 'f':
+                        case 'F':
+                            this.toggleFullscreen();
+                            break;
+                    }
+                });
+            }
+
+            previousSlide() {
+                if (this.currentSlideIndex > 0) {
+                    this.showSlide(this.currentSlideIndex - 1);
+                }
+            }
+
+            nextSlide() {
+                if (this.currentSlideIndex < this.slides.length - 1) {
+                    this.showSlide(this.currentSlideIndex + 1);
+                }
+            }
+
+            toggleFullscreen() {
+                const overlay = document.getElementById('fullscreenOverlay');
+                const fullscreenImage = document.getElementById('fullscreenImage');
+                
+                fullscreenImage.src = this.slides[this.currentSlideIndex].url;
+                overlay.style.display = 'flex';
+            }
+
+            exitFullscreen() {
+                const overlay = document.getElementById('fullscreenOverlay');
+                overlay.style.display = 'none';
+            }
+
+            showError(message) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                document.getElementById('errorMessage').textContent = message;
+            }
+        }
+
+        // 全局函数
+        function previousSlide() {
+            window.pptPreview.previousSlide();
+        }
+
+        function nextSlide() {
+            window.pptPreview.nextSlide();
+        }
+
+        function toggleFullscreen() {
+            window.pptPreview.toggleFullscreen();
+        }
+
+        function exitFullscreen() {
+            window.pptPreview.exitFullscreen();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.pptPreview = new PPTPreview();
+        });
+
+        // 点击全屏覆盖层关闭全屏
+        document.getElementById('fullscreenOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'fullscreenOverlay') {
+                exitFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>

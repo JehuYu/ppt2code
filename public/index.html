@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT2Code - PPT转二维码系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 PPT2Code</h1>
+            <p>将PPT文件转换为可扫码在线预览的二维码图片</p>
+        </header>
+
+        <main>
+            <!-- 单文件上传区域 -->
+            <section class="upload-section">
+                <h2>单文件上传</h2>
+                <div class="upload-area" id="singleUploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📁</div>
+                        <p>点击选择PPT文件或拖拽文件到此处</p>
+                        <p class="upload-hint">支持 .ppt 和 .pptx 格式</p>
+                        <input type="file" id="singleFileInput" accept=".ppt,.pptx" style="display: none;">
+                        <button class="upload-btn" onclick="document.getElementById('singleFileInput').click()">
+                            选择文件
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 批量上传区域 -->
+            <section class="upload-section">
+                <h2>批量上传</h2>
+                <div class="upload-area" id="batchUploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📦</div>
+                        <p>选择多个PPT文件进行批量处理</p>
+                        <p class="upload-hint">最多支持100个文件同时上传</p>
+                        <input type="file" id="batchFileInput" accept=".ppt,.pptx" multiple style="display: none;">
+                        <button class="upload-btn" onclick="document.getElementById('batchFileInput').click()">
+                            选择多个文件
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 二维码样式设置 -->
+            <section class="style-section">
+                <h2>🎨 二维码样式设置</h2>
+                <div class="style-container">
+                    <div class="style-row">
+                        <div class="style-group">
+                            <label>样式风格:</label>
+                            <select id="qrStyle">
+                                <option value="default">默认</option>
+                                <option value="rounded">圆角</option>
+                                <option value="gradient">渐变背景</option>
+                                <option value="shadow">阴影效果</option>
+                            </select>
+                        </div>
+                        <div class="style-group">
+                            <label>二维码大小:</label>
+                            <input type="range" id="qrSize" min="200" max="400" value="300">
+                            <span id="qrSizeValue">300px</span>
+                        </div>
+                    </div>
+
+                    <div class="style-row">
+                        <div class="style-group">
+                            <label>前景色:</label>
+                            <input type="color" id="foregroundColor" value="#000000">
+                        </div>
+                        <div class="style-group">
+                            <label>背景色:</label>
+                            <input type="color" id="backgroundColor" value="#FFFFFF">
+                        </div>
+                        <div class="style-group">
+                            <label>文字颜色:</label>
+                            <input type="color" id="textColor" value="#333333">
+                        </div>
+                    </div>
+
+                    <div class="style-row">
+                        <div class="style-group">
+                            <label>文字大小:</label>
+                            <input type="range" id="textSize" min="12" max="24" value="16">
+                            <span id="textSizeValue">16px</span>
+                        </div>
+                        <div class="style-group">
+                            <label>字体:</label>
+                            <select id="textFont">
+                                <option value="Arial">Arial</option>
+                                <option value="Microsoft YaHei">微软雅黑</option>
+                                <option value="SimHei">黑体</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="style-preview">
+                        <h4>预览效果:</h4>
+                        <div id="stylePreview" class="preview-box">
+                            <div class="preview-qr">QR</div>
+                            <div class="preview-text">示例文件名.pptx</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 进度显示区域 -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <h3>处理进度</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">准备中...</div>
+            </section>
+
+            <!-- 结果显示区域 -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h3>处理结果</h3>
+                <div class="results-container" id="resultsContainer">
+                    <!-- 结果将在这里动态显示 -->
+                </div>
+                <div class="results-actions">
+                    <button class="btn btn-primary" onclick="downloadAllQRCodes()">下载所有二维码</button>
+                    <button class="btn btn-secondary" onclick="resetForm()">重新开始</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 PPT2Code System. 让PPT分享更简单。</p>
+        </footer>
+    </div>
+
+    <!-- 模态框 -->
+    <div class="modal" id="previewModal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-body" id="modalBody">
+                <!-- 预览内容 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
