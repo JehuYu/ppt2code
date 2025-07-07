@@ -6,13 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "batch": "node batch-process.js",
-    "cleanup": "node -e \"require('./utils/fileHandler').cleanupTempFiles().then(r => console.log('清理完成:', r))\"",
     "test": "node test-system.js",
-    "test:system": "node test-system.js",
-    "deploy": "./deploy-ubuntu.sh",
-    "docker:build": "docker build -t ppt2code .",
-    "docker:run": "docker-compose up -d"
+    "docker:build": "./docker-build.sh latest build",
+    "docker:test": "./docker-build.sh latest test",
+    "docker:run": "./docker-build.sh latest run",
+    "docker:clean": "./docker-build.sh latest clean",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:down": "docker-compose down"
   },
   "keywords": [
     "ppt",
@@ -26,11 +26,8 @@
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "qrcode": "^1.5.3",
-    "sharp": "^0.32.6",
-    "pdf-poppler": "^0.2.1",
-    "libreoffice-convert": "^1.6.0",
+    "sharp": "^0.33.0",
     "cors": "^2.8.5",
-    "path": "^0.12.7",
     "fs-extra": "^11.1.1"
   },
   "devDependencies": {

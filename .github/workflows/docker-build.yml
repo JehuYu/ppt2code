@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build Docker Image
 
 on:
   push:
@@ -49,44 +49,11 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Generate deployment artifact
-      run: |
-        mkdir -p deployment
-        cat > deployment/docker-compose.prod.yml << 'EOF'
-        version: '3.8'
-        services:
-          ppt2code:
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-            container_name: ppt2code-app
-            restart: unless-stopped
-            ports:
-              - "3000:3000"
-            environment:
-              - NODE_ENV=production
-              - PORT=3000
-              - TZ=Asia/Shanghai
-            volumes:
-              - ./uploads:/app/uploads
-              - ./converted:/app/converted
-              - ./qrcodes:/app/qrcodes
-              - ./logs:/app/logs
-            healthcheck:
-              test: ["CMD", "curl", "-f", "http://localhost:3000/"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-              start_period: 40s
-        EOF
 
-    - name: Upload deployment artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: deployment-files
-        path: deployment/
